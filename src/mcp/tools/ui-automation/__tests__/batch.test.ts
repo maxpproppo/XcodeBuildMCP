@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as z from 'zod';
 import type { UiActionResultDomainResult } from '../../../../types/domain-results.ts';
+import type { CommandExecutor } from '../../../../utils/execution/index.ts';
 import { DebuggerManager } from '../../../../utils/debugger/debugger-manager.ts';
 import { sessionStore } from '../../../../utils/session-store.ts';
 import { createMockToolHandlerContext } from '../../../../test-utils/test-helpers.ts';
@@ -36,42 +37,57 @@ describe('Batch UI Automation Tool', () => {
   });
 
   describe('Schema Validation', () => {
-    it('exposes batch steps and AXe batch options', () => {
+    it('exposes structured tap steps and rejects raw AXe strings', () => {
       expect(typeof handler).toBe('function');
       expect(schema).toHaveProperty('steps');
       expect(schema).toHaveProperty('axCache');
-      expect(schema).toHaveProperty('tapStyle');
+      expect(schema).not.toHaveProperty('tapStyle');
 
       const schemaObject = z.object(schema);
-      expect(schemaObject.safeParse({ steps: ['tap --id login'] }).success).toBe(true);
+      expect(schemaObject.safeParse({ steps: [{ action: 'tap', elementRef: 'e1' }] }).success).toBe(
+        true,
+      );
       expect(
         schemaObject.safeParse({
-          steps: ['tap --id login', 'type user@example.com'],
+          steps: [
+            { action: 'tap', elementRef: 'e1', preDelay: 0.25, postDelay: 0.5 },
+            { action: 'tap', elementRef: 'e2' },
+          ],
           axCache: 'perBatch',
-          typeSubmission: 'chunked',
-          typeChunkSize: 8,
-          tapStyle: 'automatic',
-          continueOnError: true,
           waitTimeout: 2,
           pollInterval: 0.25,
         }).success,
       ).toBe(true);
+      expect(schemaObject.safeParse({ steps: ['tap --id login'] }).success).toBe(false);
       expect(schemaObject.safeParse({ steps: [] }).success).toBe(false);
-      expect(schemaObject.safeParse({ steps: [''] }).success).toBe(false);
-      expect(schemaObject.safeParse({ steps: ['tap --id login'], pollInterval: 0 }).success).toBe(
+      expect(schemaObject.safeParse({ steps: [{ action: 'tap', elementRef: '' }] }).success).toBe(
         false,
       );
+      expect(
+        schemaObject.safeParse({ steps: [{ action: 'swipe', elementRef: 'e1' }] }).success,
+      ).toBe(false);
+      expect(
+        schemaObject.safeParse({ steps: [{ action: 'tap', elementRef: 'e1' }], pollInterval: 0 })
+          .success,
+      ).toBe(false);
     });
   });
 
   describe('Command Generation', () => {
-    it('builds repeated AXe --step arguments', async () => {
+    it('pre-resolves element refs into AXe coordinate batch steps', async () => {
+      recordSnapshot([
+        createNode({ frame: { x: 10, y: 20, width: 100, height: 40 } }),
+        createNode({ frame: { x: 200, y: 300, width: 80, height: 60 }, AXLabel: 'Next' }),
+      ]);
       const { calls, executor } = createTrackingExecutor();
 
       const result = await runBatch(
         {
           simulatorId,
-          steps: ['tap --id username-field', 'type user@example.com'],
+          steps: [
+            { action: 'tap', elementRef: 'e1' },
+            { action: 'tap', elementRef: 'e2', preDelay: 0.25, postDelay: 0.5 },
+          ],
         },
         executor,
       );
@@ -85,27 +101,75 @@ describe('Batch UI Automation Tool', () => {
           '/mocked/axe/path',
           'batch',
           '--step',
-          'tap --id username-field',
+          'tap -x 60 -y 40',
           '--step',
-          'type user@example.com',
+          'tap -x 240 -y 330 --pre-delay 0.25 --post-delay 0.5',
           '--udid',
           simulatorId,
         ],
       ]);
     });
 
-    it('passes AXe batch options through unchanged', async () => {
+    it('uses touch down/up batch steps for switch refs', async () => {
+      recordSnapshot([
+        createNode({
+          type: 'Switch',
+          role: 'AXSwitch',
+          frame: { x: 42.57, y: 889.68, width: 316.87, height: 26.89 },
+          AXLabel: 'Reduce transparency',
+        }),
+      ]);
+      const { calls, executor } = createTrackingExecutor();
+
+      await runBatch({ simulatorId, steps: [{ action: 'tap', elementRef: 'e1' }] }, executor);
+
+      expect(calls[0]?.command).toEqual([
+        '/mocked/axe/path',
+        'batch',
+        '--step',
+        'touch -x 307 -y 903 --down',
+        '--step',
+        'touch -x 307 -y 903 --up',
+        '--udid',
+        simulatorId,
+      ]);
+    });
+
+    it('rejects delays for switch refs before AXe execution', async () => {
+      recordSnapshot([
+        createNode({
+          type: 'Switch',
+          role: 'AXSwitch',
+          frame: { x: 42.57, y: 889.68, width: 316.87, height: 26.89 },
+          AXLabel: 'Reduce transparency',
+        }),
+      ]);
+      const { calls, executor } = createTrackingExecutor();
+
+      const result = await runBatch(
+        { simulatorId, steps: [{ action: 'tap', elementRef: 'e1', postDelay: 0.5 }] },
+        executor,
+      );
+
+      expect(result.didError).toBe(true);
+      expect(result.uiError).toMatchObject({
+        code: 'ACTION_FAILED',
+        elementRef: 'e1',
+        recoveryHint:
+          'Remove preDelay/postDelay from switch steps, or wait between separate batch calls.',
+      });
+      expect(calls).toEqual([]);
+    });
+
+    it('passes supported AXe batch options through unchanged', async () => {
+      recordSnapshot([createNode()]);
       const { calls, executor } = createTrackingExecutor();
 
       await runBatch(
         {
           simulatorId,
-          steps: ['tap --id login'],
+          steps: [{ action: 'tap', elementRef: 'e1' }],
           axCache: 'perStep',
-          typeSubmission: 'composite',
-          typeChunkSize: 4,
-          tapStyle: 'physical',
-          continueOnError: true,
           waitTimeout: 3,
           pollInterval: 0.5,
         },
@@ -116,16 +180,9 @@ describe('Batch UI Automation Tool', () => {
         '/mocked/axe/path',
         'batch',
         '--step',
-        'tap --id login',
+        'tap -x 60 -y 40',
         '--ax-cache',
         'perStep',
-        '--type-submission',
-        'composite',
-        '--type-chunk-size',
-        '4',
-        '--tap-style',
-        'physical',
-        '--continue-on-error',
         '--wait-timeout',
         '3',
         '--poll-interval',
@@ -137,25 +194,45 @@ describe('Batch UI Automation Tool', () => {
   });
 
   describe('Runtime snapshot invalidation', () => {
-    it('clears the cached runtime snapshot after a successful batch', async () => {
+    it('preserves the cached runtime snapshot after a successful batch', async () => {
       recordSnapshot([createNode()]);
 
-      const result = await runBatch({ simulatorId, steps: ['tap --id login'] });
+      const result = await runBatch({ simulatorId, steps: [{ action: 'tap', elementRef: 'e1' }] });
 
       expect(result.didError).toBe(false);
-      expect(getRuntimeSnapshot(simulatorId)).toBeNull();
+      expect(getRuntimeSnapshot(simulatorId)).not.toBeNull();
+    });
+
+    it('pre-resolves all refs and fails before execution if any ref is invalid', async () => {
+      recordSnapshot([createNode()]);
+      const { calls, executor } = createTrackingExecutor();
+
+      const result = await runBatch(
+        {
+          simulatorId,
+          steps: [
+            { action: 'tap', elementRef: 'e1' },
+            { action: 'tap', elementRef: 'e404' },
+          ],
+        },
+        executor,
+      );
+
+      expect(result.didError).toBe(true);
+      expect(result.uiError).toMatchObject({ code: 'ELEMENT_REF_NOT_FOUND', elementRef: 'e404' });
+      expect(calls).toEqual([]);
+      expect(getRuntimeSnapshot(simulatorId)).not.toBeNull();
     });
 
     it('clears the cached runtime snapshot when AXe runs and reports batch failure', async () => {
       recordSnapshot([createNode()]);
 
       const result = await runBatch(
-        { simulatorId, steps: ['type Secret123'] },
-        createFailingExecutor('step failed: type Secret123'),
+        { simulatorId, steps: [{ action: 'tap', elementRef: 'e1' }] },
+        createFailingExecutor('step failed'),
       );
 
       expect(result.didError).toBe(true);
-      expect(JSON.stringify(result)).not.toContain('Secret123');
       expect(getRuntimeSnapshot(simulatorId)).toBeNull();
     });
 
@@ -164,7 +241,7 @@ describe('Batch UI Automation Tool', () => {
       const { executor } = createTrackingExecutor();
 
       const result = await runBatch(
-        { simulatorId, steps: ['tap --id login'] },
+        { simulatorId, steps: [{ action: 'tap', elementRef: 'e1' }] },
         executor,
         createMockAxeHelpers({ getAxePathReturn: null }),
       );
@@ -191,7 +268,10 @@ describe('Batch UI Automation Tool', () => {
       });
       const executeBatch = createBatchExecutor(executor, createMockAxeHelpers(), debuggerManager);
 
-      const result = await executeBatch({ simulatorId, steps: ['tap --id login'] });
+      const result = await executeBatch({
+        simulatorId,
+        steps: [{ action: 'tap', elementRef: 'e1' }],
+      });
 
       expect(result.didError).toBe(true);
       expect(calls).toEqual([]);
@@ -201,11 +281,53 @@ describe('Batch UI Automation Tool', () => {
 
   describe('Handler Behavior', () => {
     it('requires simulatorId session default', async () => {
-      const result = await handler({ steps: ['tap --id login'] });
+      const result = await handler({ steps: [{ action: 'tap', elementRef: 'e1' }] });
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Missing required session defaults');
       expect(result.content[0].text).toContain('simulatorId is required');
+    });
+
+    it('ignores unrelated project session defaults before strict validation', async () => {
+      sessionStore.setDefaults({
+        simulatorId,
+        projectPath: '/tmp/App.xcodeproj',
+        scheme: 'App',
+        simulatorName: 'iPhone 17 Pro',
+        simulatorPlatform: 'iOS Simulator',
+      });
+      recordSnapshot([createNode()]);
+      const { calls, executor } = createTrackingExecutor();
+
+      const result = await (
+        handler as unknown as (
+          args: Record<string, unknown>,
+          executor: CommandExecutor,
+        ) => Promise<{ isError?: boolean; content: Array<{ text: string }> }>
+      )({ steps: [{ action: 'tap', elementRef: 'e1' }] }, executor);
+
+      expect(result.isError).toBeUndefined();
+      expect(calls[0]?.command.slice(1)).toEqual([
+        'batch',
+        '--step',
+        'tap -x 60 -y 40',
+        '--udid',
+        simulatorId,
+      ]);
+    });
+
+    it('rejects removed legacy top-level fields', async () => {
+      sessionStore.setDefaults({ simulatorId });
+
+      const result = await handler({
+        steps: [{ action: 'tap', elementRef: 'e1' }],
+        tapStyle: 'physical',
+      } as Parameters<typeof handler>[0]);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Parameter validation failed');
+      expect(result.content[0].text).toContain('Unrecognized key');
+      expect(result.content[0].text).toContain('tapStyle');
     });
   });
 });

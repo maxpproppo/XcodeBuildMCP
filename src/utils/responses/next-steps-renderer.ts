@@ -1,6 +1,32 @@
 import type { RuntimeKind } from '../../runtime/types.ts';
-import type { NextStep, OutputStyle, ToolResponse } from '../../types/common.ts';
+import type {
+  NextStep,
+  NextStepParamValue,
+  OutputStyle,
+  ToolResponse,
+} from '../../types/common.ts';
 import { toKebabCase } from '../../runtime/naming.ts';
+
+function formatMcpParamValue(value: NextStepParamValue): string {
+  if (typeof value === 'string') {
+    return `"${value}"`;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+function formatCliParamValue(value: Exclude<NextStepParamValue, boolean>): string {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return `"${String(value)}"`;
+  }
+  return `'${JSON.stringify(value)}'`;
+}
+
+function hasComplexCliParamValue(value: NextStepParamValue): boolean {
+  return typeof value === 'object' && value !== null;
+}
 
 function resolveLabel(step: NextStep): string {
   if (step.label?.trim()) return step.label;
@@ -28,6 +54,11 @@ function formatNextStepForCli(step: NextStep): string {
 
   parts.push(cliTool);
 
+  if (Object.values(params).some(hasComplexCliParamValue)) {
+    parts.push(`--json ${formatCliParamValue(params)}`);
+    return parts.join(' ');
+  }
+
   for (const [key, value] of Object.entries(params)) {
     const flagName = toKebabCase(key);
     if (typeof value === 'boolean') {
@@ -35,7 +66,7 @@ function formatNextStepForCli(step: NextStep): string {
         parts.push(`--${flagName}`);
       }
     } else {
-      parts.push(`--${flagName} "${String(value)}"`);
+      parts.push(`--${flagName} ${formatCliParamValue(value)}`);
     }
   }
 
@@ -58,12 +89,7 @@ function formatNextStepForMcp(step: NextStep): string {
   }
 
   const paramsStr = paramEntries
-    .map(([key, value]) => {
-      if (typeof value === 'string') {
-        return `${key}: "${value}"`;
-      }
-      return `${key}: ${String(value)}`;
-    })
+    .map(([key, value]) => `${key}: ${formatMcpParamValue(value)}`)
     .join(', ');
 
   return `${step.tool}({ ${paramsStr} })`;

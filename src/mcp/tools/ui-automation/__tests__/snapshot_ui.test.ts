@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as z from 'zod';
 import { createMockExecutor, createNoopExecutor } from '../../../../test-utils/mock-executors.ts';
 import type { CommandExecutor } from '../../../../utils/execution/index.ts';
+import type { DebuggerBackend } from '../../../../utils/debugger/backends/DebuggerBackend.ts';
+import { DebuggerManager } from '../../../../utils/debugger/debugger-manager.ts';
 import { schema, handler, snapshot_uiLogic } from '../snapshot_ui.ts';
 import { AXE_NOT_AVAILABLE_MESSAGE } from '../../../../utils/axe-helpers.ts';
 import {
@@ -13,6 +15,26 @@ import {
   __resetRuntimeSnapshotStoreForTests,
   getRuntimeSnapshot,
 } from '../shared/snapshot-ui-state.ts';
+
+async function createStoppedDebuggerManager(simulatorId: string): Promise<DebuggerManager> {
+  const backend: DebuggerBackend = {
+    kind: 'lldb-cli',
+    attach: async () => {},
+    detach: async () => {},
+    runCommand: async () => '',
+    resume: async () => {},
+    addBreakpoint: async (spec) => ({ id: 1, spec, rawOutput: '' }),
+    removeBreakpoint: async () => '',
+    getStack: async () => '',
+    getVariables: async () => '',
+    getExecutionState: async () => ({ status: 'stopped', reason: 'breakpoint' }),
+    dispose: async () => {},
+  };
+  const manager = new DebuggerManager({ backendFactory: async () => backend });
+  const session = await manager.createSession({ simulatorId, pid: 12345 });
+  manager.setCurrentSession(session.id);
+  return manager;
+}
 
 describe('Snapshot UI Plugin', () => {
   describe('Export Field Validation (Literal)', () => {
@@ -321,6 +343,175 @@ describe('Snapshot UI Plugin', () => {
       ]);
     });
 
+    it('should emit a batch next step when multiple stateful same-screen tap targets are present', async () => {
+      const uiHierarchy = JSON.stringify({
+        elements: [
+          {
+            type: 'Switch',
+            role: 'AXSwitch',
+            AXLabel: 'Reduce Motion',
+            AXValue: '0',
+            frame: { x: 20, y: 40, width: 300, height: 44 },
+          },
+          {
+            type: 'Switch',
+            role: 'AXSwitch',
+            AXLabel: 'Reduce Transparency',
+            AXValue: '0',
+            frame: { x: 20, y: 100, width: 300, height: 44 },
+          },
+        ],
+      });
+      const mockExecutor = createMockExecutor({
+        success: true,
+        output: uiHierarchy,
+        error: undefined,
+        process: { pid: 12345 },
+      });
+      const mockAxeHelpers = {
+        getAxePath: () => '/usr/local/bin/axe',
+        getBundledAxeEnvironment: () => ({}),
+      };
+
+      __resetRuntimeSnapshotStoreForTests();
+      const { ctx, run } = createMockToolHandlerContext();
+      await run(() =>
+        snapshot_uiLogic(
+          { simulatorId: '12345678-1234-4234-8234-123456789012' },
+          mockExecutor,
+          mockAxeHelpers,
+        ),
+      );
+
+      expect(ctx.nextSteps?.find((step) => step.tool === 'batch')?.params).toEqual({
+        simulatorId: '12345678-1234-4234-8234-123456789012',
+        steps: [
+          { action: 'tap', elementRef: 'e1' },
+          { action: 'tap', elementRef: 'e2' },
+        ],
+      });
+    });
+
+    it('should exclude low-value, selected, and screen-changing controls from batch next-step guidance', async () => {
+      const uiHierarchy = JSON.stringify({
+        elements: [
+          {
+            type: 'Button',
+            role: 'AXButton',
+            AXLabel: 'Remove',
+            frame: { x: 20, y: 40, width: 100, height: 44 },
+          },
+          {
+            type: 'Button',
+            role: 'AXButton',
+            AXLabel: '°F',
+            AXValue: 'selected',
+            frame: { x: 20, y: 100, width: 100, height: 44 },
+          },
+          {
+            type: 'Button',
+            role: 'AXButton',
+            AXLabel: 'Portland, 1:24 PM · Light Rain',
+            AXUniqueId: 'weather.locationRow',
+            frame: { x: 20, y: 160, width: 300, height: 80 },
+          },
+          {
+            type: 'Switch',
+            role: 'AXSwitch',
+            AXLabel: 'Use Celsius',
+            AXValue: '0',
+            AXUniqueId: 'settings.useCelsiusRowSwitch',
+            frame: { x: 20, y: 260, width: 300, height: 44 },
+          },
+          {
+            type: 'Switch',
+            role: 'AXSwitch',
+            AXLabel: 'Severe Weather Alerts',
+            AXValue: '0',
+            AXUniqueId: 'settings.alertsRowSwitch',
+            frame: { x: 20, y: 320, width: 300, height: 44 },
+          },
+        ],
+      });
+      const mockExecutor = createMockExecutor({
+        success: true,
+        output: uiHierarchy,
+        error: undefined,
+        process: { pid: 12345 },
+      });
+      const mockAxeHelpers = {
+        getAxePath: () => '/usr/local/bin/axe',
+        getBundledAxeEnvironment: () => ({}),
+      };
+
+      __resetRuntimeSnapshotStoreForTests();
+      const { ctx, run } = createMockToolHandlerContext();
+      await run(() =>
+        snapshot_uiLogic(
+          { simulatorId: '12345678-1234-4234-8234-123456789012' },
+          mockExecutor,
+          mockAxeHelpers,
+        ),
+      );
+
+      expect(ctx.nextSteps?.find((step) => step.tool === 'batch')?.params).toEqual({
+        simulatorId: '12345678-1234-4234-8234-123456789012',
+        steps: [
+          { action: 'tap', elementRef: 'e4' },
+          { action: 'tap', elementRef: 'e5' },
+        ],
+      });
+      expect(ctx.nextSteps?.find((step) => step.tool === 'tap')?.params).toEqual({
+        simulatorId: '12345678-1234-4234-8234-123456789012',
+        elementRef: 'e4',
+      });
+    });
+
+    it('should keep single tap guidance without batch when only one safe batch target exists', async () => {
+      const uiHierarchy = JSON.stringify({
+        elements: [
+          {
+            type: 'Button',
+            role: 'AXButton',
+            AXLabel: 'Remove',
+            frame: { x: 20, y: 40, width: 100, height: 44 },
+          },
+          {
+            type: 'Button',
+            role: 'AXButton',
+            AXLabel: 'Portland',
+            frame: { x: 20, y: 100, width: 100, height: 44 },
+          },
+        ],
+      });
+      const mockExecutor = createMockExecutor({
+        success: true,
+        output: uiHierarchy,
+        error: undefined,
+        process: { pid: 12345 },
+      });
+      const mockAxeHelpers = {
+        getAxePath: () => '/usr/local/bin/axe',
+        getBundledAxeEnvironment: () => ({}),
+      };
+
+      __resetRuntimeSnapshotStoreForTests();
+      const { ctx, run } = createMockToolHandlerContext();
+      await run(() =>
+        snapshot_uiLogic(
+          { simulatorId: '12345678-1234-4234-8234-123456789012' },
+          mockExecutor,
+          mockAxeHelpers,
+        ),
+      );
+
+      expect(ctx.nextSteps?.find((step) => step.tool === 'batch')).toBeUndefined();
+      expect(ctx.nextSteps?.find((step) => step.tool === 'tap')?.params).toEqual({
+        simulatorId: '12345678-1234-4234-8234-123456789012',
+        elementRef: 'e2',
+      });
+    });
+
     it('should prefer a non-text-field tap target in next steps', async () => {
       const uiHierarchy = JSON.stringify({
         elements: [
@@ -612,7 +803,7 @@ describe('Snapshot UI Plugin', () => {
       });
     });
 
-    it('should prefer content-rich targets for tap next-step guidance', async () => {
+    it('should prefer same-screen stateful controls over navigation and content targets for tap next-step guidance', async () => {
       const uiHierarchy = JSON.stringify({
         elements: [
           {
@@ -635,6 +826,13 @@ describe('Snapshot UI Plugin', () => {
             AXLabel: 'PRECIP., 78%, Next 24 hours',
             AXIdentifier: 'weather.precipitationCard',
             frame: { x: 20, y: 260, width: 340, height: 140 },
+          },
+          {
+            type: 'Switch',
+            role: 'AXSwitch',
+            AXLabel: 'Severe Weather Alerts',
+            AXValue: '0',
+            frame: { x: 20, y: 440, width: 300, height: 44 },
           },
         ],
       });
@@ -661,11 +859,12 @@ describe('Snapshot UI Plugin', () => {
 
       expect(ctx.nextSteps?.find((step) => step.tool === 'tap')?.params).toEqual({
         simulatorId: '12345678-1234-4234-8234-123456789012',
-        elementRef: 'e3',
+        elementRef: 'e4',
       });
+      expect(ctx.nextSteps?.find((step) => step.tool === 'batch')).toBeUndefined();
     });
 
-    it('should clear runtime snapshot store when AXe output cannot be parsed', async () => {
+    it('should preserve runtime snapshot store when AXe output cannot be parsed', async () => {
       __resetRuntimeSnapshotStoreForTests();
       const simulatorId = '12345678-1234-4234-8234-123456789012';
       const seededExecutor = createMockExecutor({
@@ -681,7 +880,8 @@ describe('Snapshot UI Plugin', () => {
       };
 
       await runLogic(() => snapshot_uiLogic({ simulatorId }, seededExecutor, mockAxeHelpers));
-      expect(getRuntimeSnapshot(simulatorId)).not.toBeNull();
+      const previousSnapshot = getRuntimeSnapshot(simulatorId);
+      expect(previousSnapshot).not.toBeNull();
 
       const invalidJsonExecutor = createMockExecutor({
         success: true,
@@ -693,7 +893,7 @@ describe('Snapshot UI Plugin', () => {
       await run(() => snapshot_uiLogic({ simulatorId }, invalidJsonExecutor, mockAxeHelpers));
 
       expect(result.isError()).toBe(true);
-      expect(getRuntimeSnapshot(simulatorId)).toBeNull();
+      expect(getRuntimeSnapshot(simulatorId)).toBe(previousSnapshot);
       expect(ctx.structuredOutput?.schemaVersion).toBe('2');
       expect(
         ctx.structuredOutput?.result.kind === 'capture-result'
@@ -702,8 +902,92 @@ describe('Snapshot UI Plugin', () => {
       ).toEqual(
         expect.objectContaining({
           code: 'SNAPSHOT_PARSE_FAILED',
+          recoveryHint: 'Run snapshot_ui again after the app is fully launched and responsive.',
         }),
       );
+    });
+
+    it('should reject empty AXe payloads without replacing a prior runtime snapshot', async () => {
+      __resetRuntimeSnapshotStoreForTests();
+      const simulatorId = '12345678-1234-4234-8234-123456789012';
+      const mockAxeHelpers = {
+        getAxePath: () => '/usr/local/bin/axe',
+        getBundledAxeEnvironment: () => ({}),
+      };
+      const seededExecutor = createMockExecutor({
+        success: true,
+        output:
+          '{"elements": [{"type": "Button", "frame": {"x": 1, "y": 2, "width": 3, "height": 4}}]}',
+        error: undefined,
+        process: { pid: 12345 },
+      });
+      await runLogic(() => snapshot_uiLogic({ simulatorId }, seededExecutor, mockAxeHelpers));
+      const previousSnapshot = getRuntimeSnapshot(simulatorId);
+      expect(previousSnapshot?.payload.elements).toHaveLength(1);
+
+      for (const output of ['[]', '{"elements": []}', '{}']) {
+        const emptyExecutor = createMockExecutor({
+          success: true,
+          output,
+          error: undefined,
+          process: { pid: 12345 },
+        });
+        const { ctx, result, run } = createMockToolHandlerContext();
+        await run(() => snapshot_uiLogic({ simulatorId }, emptyExecutor, mockAxeHelpers));
+
+        expect(result.isError()).toBe(true);
+        expect(
+          ctx.structuredOutput?.result.kind === 'capture-result'
+            ? ctx.structuredOutput.result.uiError?.code
+            : undefined,
+        ).toBe('SNAPSHOT_PARSE_FAILED');
+        expect(getRuntimeSnapshot(simulatorId)).toBe(previousSnapshot);
+      }
+    });
+
+    it('should preserve runtime snapshot store when the debugger guard blocks before AXe runs', async () => {
+      __resetRuntimeSnapshotStoreForTests();
+      const simulatorId = '12345678-1234-4234-8234-123456789012';
+      const seededExecutor = createMockExecutor({
+        success: true,
+        output:
+          '{"elements": [{"type": "Button", "frame": {"x": 1, "y": 2, "width": 3, "height": 4}}]}',
+        error: undefined,
+        process: { pid: 12345 },
+      });
+      const mockAxeHelpers = {
+        getAxePath: () => '/usr/local/bin/axe',
+        getBundledAxeEnvironment: () => ({}),
+      };
+      await runLogic(() => snapshot_uiLogic({ simulatorId }, seededExecutor, mockAxeHelpers));
+      const previousSnapshot = getRuntimeSnapshot(simulatorId);
+      const stoppedDebugger = await createStoppedDebuggerManager(simulatorId);
+      const guardedExecutor: CommandExecutor = async () => {
+        throw new Error('AXe should not run when debugger guard blocks');
+      };
+
+      try {
+        const { ctx, result, run } = createMockToolHandlerContext();
+        await run(() =>
+          snapshot_uiLogic({ simulatorId }, guardedExecutor, mockAxeHelpers, stoppedDebugger),
+        );
+
+        expect(result.isError()).toBe(true);
+        expect(getRuntimeSnapshot(simulatorId)).toBe(previousSnapshot);
+        expect(
+          ctx.structuredOutput?.result.kind === 'capture-result'
+            ? ctx.structuredOutput.result.uiError
+            : undefined,
+        ).toEqual(
+          expect.objectContaining({
+            code: 'ACTION_FAILED',
+            recoveryHint:
+              'Resume execution with debug_continue, remove breakpoints, or detach with debug_detach before retrying UI automation.',
+          }),
+        );
+      } finally {
+        await stoppedDebugger.disposeAll();
+      }
     });
 
     it('should handle DependencyError when axe is not available', async () => {

@@ -11,7 +11,7 @@ import {
   getHandlerContext,
   toInternalSchema,
 } from '../../../utils/typed-tool-factory.ts';
-import { clearRuntimeSnapshot, recordRuntimeSnapshot } from './shared/snapshot-ui-state.ts';
+import { recordRuntimeSnapshot } from './shared/snapshot-ui-state.ts';
 import { executeAxeCommand, defaultAxeHelpers } from './shared/axe-command.ts';
 import type { AxeHelpers } from './shared/axe-command.ts';
 import type { NextStep } from '../../../types/common.ts';
@@ -61,6 +61,17 @@ const LOW_PRIORITY_TAP_NEXT_STEP_LABELS = new Set([
   '=',
 ]);
 
+const SCREEN_CHANGING_TAP_NEXT_STEP_LABELS = new Set([
+  'back',
+  'cancel',
+  'done',
+  'settings',
+  'menu',
+  'home',
+  'next',
+  'previous',
+]);
+
 function compactTapNextStepText(value: string | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim();
 }
@@ -82,6 +93,46 @@ function isContentRichTapNextStepElement(element: {
   return label.includes(',') || label.length >= 24 || /card$/i.test(identifier);
 }
 
+function isScreenChangingTapNextStepElement(element: {
+  label?: string;
+  identifier?: string;
+  role?: string;
+}): boolean {
+  const label = compactTapNextStepText(element.label).toLowerCase();
+  const identifier = compactTapNextStepText(element.identifier).toLowerCase();
+  return (
+    element.role === 'tab' ||
+    SCREEN_CHANGING_TAP_NEXT_STEP_LABELS.has(label) ||
+    /(?:^|[._-])(back|navigation|tab|detail|details)(?:$|[._-])/i.test(identifier)
+  );
+}
+
+function isLocationRowTapNextStepElement(element: {
+  label?: string;
+  identifier?: string;
+}): boolean {
+  const identifier = compactTapNextStepText(element.identifier).toLowerCase();
+  return /(?:location|row)/.test(identifier);
+}
+
+function isStatefulSameScreenTapNextStepElement(element: {
+  role?: string;
+  state?: { selected?: boolean };
+  value?: string;
+}): boolean {
+  const value = compactTapNextStepText(element.value).toLowerCase();
+  return (
+    element.role !== 'tab' &&
+    (element.role === 'switch' ||
+      element.state?.selected === false ||
+      value === 'not selected' ||
+      value === '0' ||
+      value === '1' ||
+      value === 'off' ||
+      value === 'on')
+  );
+}
+
 function isAlreadySelectedTapNextStepElement(element: {
   state?: { selected?: boolean };
   value?: string;
@@ -92,9 +143,28 @@ function isAlreadySelectedTapNextStepElement(element: {
   );
 }
 
+function isSafeBatchNextStepElement(element: {
+  label?: string;
+  identifier?: string;
+  role?: string;
+  state?: { selected?: boolean };
+  value?: string;
+}): boolean {
+  const isStateful = isStatefulSameScreenTapNextStepElement(element);
+  return (
+    isStateful &&
+    !isLowPriorityTapNextStepElement(element.label) &&
+    !isAlreadySelectedTapNextStepElement(element) &&
+    !isScreenChangingTapNextStepElement(element) &&
+    (!isContentRichTapNextStepElement(element) || element.role === 'switch') &&
+    (!isLocationRowTapNextStepElement(element) || element.role === 'switch')
+  );
+}
+
 function getTapNextStepElementPriority(element: {
   label?: string;
   identifier?: string;
+  role?: string;
   state?: { selected?: boolean };
   value?: string;
 }): number {
@@ -102,10 +172,16 @@ function getTapNextStepElementPriority(element: {
     return 90;
   }
   if (isAlreadySelectedTapNextStepElement(element)) {
+    return 80;
+  }
+  if (isStatefulSameScreenTapNextStepElement(element)) {
+    return 0;
+  }
+  if (isContentRichTapNextStepElement(element) || isLocationRowTapNextStepElement(element)) {
     return 70;
   }
-  if (isContentRichTapNextStepElement(element)) {
-    return 0;
+  if (isScreenChangingTapNextStepElement(element)) {
+    return 60;
   }
   return 20;
 }
@@ -126,8 +202,14 @@ export function createSnapshotUiExecutor(
       toolName,
     });
     if (guard.blockedMessage) {
-      clearRuntimeSnapshot(simulatorId);
-      return createCaptureFailureResult(simulatorId, guard.blockedMessage);
+      return createCaptureFailureResult(simulatorId, guard.blockedMessage, {
+        uiError: {
+          code: 'ACTION_FAILED',
+          message: guard.blockedMessage,
+          recoveryHint:
+            'Resume execution with debug_continue, remove breakpoints, or detach with debug_detach before retrying UI automation.',
+        },
+      });
     }
 
     log('info', `${LOG_PREFIX}/${toolName}: Starting for ${simulatorId}`);
@@ -163,8 +245,6 @@ export function createSnapshotUiExecutor(
         warnings: [guard.warningText],
       });
     } catch (error) {
-      clearRuntimeSnapshot(simulatorId);
-
       if (error instanceof RuntimeSnapshotParseError) {
         const message = 'Failed to parse runtime UI snapshot.';
         log('error', `${LOG_PREFIX}/${toolName}: Failed - ${message}`);
@@ -205,8 +285,8 @@ export async function snapshot_uiLogic(
     result.capture && 'type' in result.capture && result.capture.type === 'runtime-snapshot'
       ? result.capture
       : null;
-  const tapElement = runtimeSnapshot
-    ? (runtimeSnapshot.elements
+  const tapElements = runtimeSnapshot
+    ? runtimeSnapshot.elements
         .map((element, index) => ({ element, index }))
         .filter(
           ({ element }) =>
@@ -219,8 +299,11 @@ export async function snapshot_uiLogic(
             getTapNextStepElementPriority(left.element) -
             getTapNextStepElementPriority(right.element);
           return priorityDelta === 0 ? left.index - right.index : priorityDelta;
-        })[0]?.element ?? null)
-    : null;
+        })
+        .map(({ element }) => element)
+    : [];
+  const tapElement = tapElements[0] ?? null;
+  const batchElements = tapElements.filter(isSafeBatchNextStepElement);
 
   if (!result.didError) {
     const nextSteps: NextStep[] = [
@@ -234,6 +317,21 @@ export async function snapshot_uiLogic(
         tool: 'wait_for_ui',
         params: { simulatorId: params.simulatorId, predicate: 'settled' },
       },
+      ...(batchElements.length >= 2
+        ? [
+            {
+              label: 'Batch same-screen taps',
+              tool: 'batch',
+              params: {
+                simulatorId: params.simulatorId,
+                steps: batchElements.slice(0, 2).map((element) => ({
+                  action: 'tap',
+                  elementRef: element.ref,
+                })),
+              },
+            },
+          ]
+        : []),
       ...(tapElement
         ? [
             {

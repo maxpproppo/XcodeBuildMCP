@@ -92,6 +92,27 @@ describe('next-steps-renderer', () => {
       expect(result).toBe('Do something: xcodebuildmcp some-tool');
     });
 
+    it('should format complex CLI params through json', () => {
+      const step: NextStep = {
+        tool: 'batch',
+        cliTool: 'batch',
+        workflow: 'ui-automation',
+        label: 'Batch same-screen taps',
+        params: {
+          simulatorId: 'ABC123',
+          steps: [
+            { action: 'tap', elementRef: 'e1' },
+            { action: 'tap', elementRef: 'e2' },
+          ],
+        },
+      };
+
+      const result = renderNextStep(step, 'cli');
+      expect(result).toBe(
+        'Batch same-screen taps: xcodebuildmcp ui-automation batch --json \'{"simulatorId":"ABC123","steps":[{"action":"tap","elementRef":"e1"},{"action":"tap","elementRef":"e2"}]}\'',
+      );
+    });
+
     it('should format step for MCP with no params', () => {
       const step: NextStep = {
         tool: 'open_sim',

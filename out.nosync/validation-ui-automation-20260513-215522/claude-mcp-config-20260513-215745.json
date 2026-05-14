@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "xcodebuildmcp-dev": {
+      "command": "node",
+      "args": [
+        "/Volumes/Developer/XcodeBuildMCP/build/cli.js",
+        "mcp"
+      ],
+      "env": {
+        "XCODEBUILDMCP_AXE_SOURCE_PATH": "/Volumes/Developer/AXe",
+        "XCODEBUILDMCP_SENTRY_DISABLED": "1"
+      }
+    }
+  }
+}

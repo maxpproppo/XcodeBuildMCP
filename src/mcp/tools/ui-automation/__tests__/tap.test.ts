@@ -81,14 +81,14 @@ describe('Tap Plugin', () => {
       });
     });
 
-    it('clears the cached runtime snapshot after a successful tap', async () => {
+    it('preserves the cached runtime snapshot after a successful tap', async () => {
       recordSnapshot([createNode({ AXUniqueId: 'continue-button' })]);
       const { executor } = createTrackingExecutor();
 
       const result = await runTap({ simulatorId, elementRef: 'e1' }, executor);
 
       expect(result.didError).toBe(false);
-      expect(getRuntimeSnapshot(simulatorId)).toBeNull();
+      expect(getRuntimeSnapshot(simulatorId)).not.toBeNull();
     });
 
     it('includes element type when tapping a referenced element with a shared identifier', async () => {

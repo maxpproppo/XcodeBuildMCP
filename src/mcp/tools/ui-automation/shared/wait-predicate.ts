@@ -278,7 +278,10 @@ export function evaluateElementPredicate(params: {
   }
 
   if (predicate === 'gone') {
-    return { matched: candidates.length === 0, candidates };
+    const goneCandidates = text
+      ? candidates.filter((candidate) => elementTextContains(candidate, text))
+      : candidates;
+    return { matched: goneCandidates.length === 0, candidates: goneCandidates };
   }
 
   if (predicate === 'textContains') {

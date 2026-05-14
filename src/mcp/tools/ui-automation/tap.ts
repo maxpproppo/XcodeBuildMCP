@@ -119,7 +119,6 @@ export function createTapExecutor(
       if (usesTouchActivation && postDelay !== undefined) {
         await delayMs(postDelay * 1000);
       }
-      clearRuntimeSnapshot(simulatorId);
       log('info', `${LOG_PREFIX}/${toolName}: Success for ${simulatorId}`);
       return createUiActionSuccessResult(action, simulatorId, [guard.warningText]);
     } catch (error) {
