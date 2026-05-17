@@ -12,7 +12,7 @@ This is a refinement pass, not a new architecture. Keep the structured-output en
 - `wait_for_ui` polls snapshots and records the latest usable runtime snapshot while waiting (`src/mcp/tools/ui-automation/wait_for_ui.ts`).
 - Prior art: `04b055210b111c8a2d70bdf5c19ca4c6b0d2a479` added RS/1 runtime automation parity, including batch execution, wait predicates, runtime refs, and screen-hash unchanged responses.
 
-Transcript evidence from `/Users/cameroncooke/Desktop/out.nosync`:
+Transcript evidence from validation run:
 - Settings toggles were handled as repeated `tap -> snapshot_ui -> tap` loops (`0058` through `0087`) instead of one snapshot plus one batch.
 - Batch syntax was guessed and failed (`tap e7`, `tap --element-ref e7`, `tap-target e21`) before the agent fell back to coordinates (`0281` through `0286`, `0312` through `0327`).
 - Scroll and sheet expansion produced repeated gesture/swipe/screenshot/snapshot loops (`0110` through `0144`).
@@ -83,9 +83,9 @@ Add or update tests for:
 Use Claude Code, not Codex, for validation runs. Configure Claude Code to use the local source-built XcodeBuildMCP server, then repeat the Weather-app task from `0001_user_message.md`.
 
 Reference commands and artifacts:
-- Existing parser: `/Volumes/Developer/parse_claude_conversation.py`
-- Example source conversation: `/Users/cameroncooke/.claude/projects/-Volumes-Developer-XcodeBuildMCP-example-projects-Weather/b3d6cae2-e274-4a72-92ea-25eaf4f6fcff.jsonl`
-- Export command example: `python3 /Volumes/Developer/parse_claude_conversation.py <claude-jsonl>`
+- Existing parser: `parse_claude_conversation.py`
+- Example source conversation: `.claude/projects/<project-path>/<session-id>.jsonl`
+- Export command example: `python3 parse_claude_conversation.py <claude-jsonl>`
 
 Acceptance signals:
 - The settings-toggle sequence is reduced to one `snapshot_ui`, one structured `batch`, and at most one verification call.
@@ -106,11 +106,11 @@ After validation, add a concise entry covering:
 
 ## Validation Results
 
-Validation artifacts were written under `/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522` with timestamped names. Prior Claude transcripts/exports were not deleted or overwritten.
+Validation artifacts were written under `out.nosync/validation-ui-automation-20260513-215522` with timestamped names. Prior Claude transcripts/exports were not deleted or overwritten.
 
 ### Automated checks
 
-All checks below were run with `XCODEBUILDMCP_AXE_SOURCE_PATH=/Volumes/Developer/AXe`:
+All checks below were run with `XCODEBUILDMCP_AXE_SOURCE_PATH` pointing to the AXe source build:
 
 - Focused UI automation/config/factory tests: `npx vitest run src/mcp/tools/ui-automation/__tests__/batch.test.ts src/mcp/tools/ui-automation/__tests__/runtime-snapshot.test.ts src/mcp/tools/ui-automation/__tests__/snapshot_ui.test.ts src/mcp/tools/ui-automation/__tests__/tap.test.ts src/mcp/tools/ui-automation/__tests__/wait_for_ui.test.ts src/utils/__tests__/axe-helpers.test.ts src/utils/__tests__/config-store.test.ts src/utils/__tests__/project-config.test.ts src/utils/__tests__/session-aware-tool-factory.test.ts src/utils/responses/__tests__/next-steps-renderer.test.ts` passed: 10 files, 192 tests (`focused-vitest-20260513-215522.log`).
 - `npm run lint` passed (`lint-20260513-215539.log`).
@@ -118,7 +118,7 @@ All checks below were run with `XCODEBUILDMCP_AXE_SOURCE_PATH=/Volumes/Developer
 - `npm run typecheck` passed (`typecheck-20260513-215539.log`).
 - `npm run build` passed (`build-20260513-215553.log`).
 - `npm run test` passed: 186 files, 2049 tests (`test-20260513-215553.log`).
-- Post-review fixes were applied for switch batch delay handling and selector-scoped `gone` text waits. Final checks after those fixes passed: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run build`, and `npm run test` (186 files, 2052 tests). The final full-test output was preserved at `/tmp/xcodebuildmcp-final-npm-test-20260513.txt`.
+- Post-review fixes were applied for switch batch delay handling and selector-scoped `gone` text waits. Final checks after those fixes passed: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run build`, and `npm run test` (186 files, 2052 tests).
 
 ### AXe source-build proof
 
@@ -127,18 +127,18 @@ All checks below were run with `XCODEBUILDMCP_AXE_SOURCE_PATH=/Volumes/Developer
 ```json
 {
   "resolved": {
-    "path": "/Volumes/Developer/AXe/.build/release/axe",
+    "path": "<axe-source-path>/.build/release/axe",
     "source": "source"
   },
   "bundledEnvironment": {}
 }
 ```
 
-The resolved binary reported version `staging-main-31-510d4df-dirty`, proving the validation used the `/Volumes/Developer/AXe` source build rather than bundled or PATH fallback.
+The resolved binary reported version `staging-main-31-510d4df-dirty`, proving the validation used a local AXe source build rather than bundled or PATH fallback.
 
 ### Claude Code E2E
 
-Claude Code ran the full original 18-step Weather/Safari task from `/Users/cameroncooke/Desktop/out.nosync/0001_user_message.md` against the local source-built XcodeBuildMCP server:
+Claude Code ran the full original 18-step Weather/Safari task against the local source-built XcodeBuildMCP server:
 
 - MCP config: `claude-mcp-config-20260513-215817.json`
 - Prompt: `claude-weather-safari-prompt-20260513-215817.md`
@@ -153,9 +153,9 @@ The MCP config used:
 ```json
 {
   "command": "node",
-  "args": ["/Volumes/Developer/XcodeBuildMCP/build/cli.js", "mcp"],
+  "args": ["<xcodebuildmcp-path>/build/cli.js", "mcp"],
   "env": {
-    "XCODEBUILDMCP_AXE_SOURCE_PATH": "/Volumes/Developer/AXe",
+    "XCODEBUILDMCP_AXE_SOURCE_PATH": "<axe-source-path>",
     "XCODEBUILDMCP_SENTRY_DISABLED": "1"
   }
 }
@@ -181,8 +181,5 @@ From `churn-analysis-94c0a294-37b0-453f-9ac6-774095a4ace0-20260513-221455.md`:
   - Safari WebView contents, cookie/sign-in UI, and BBC in-page links were not exposed as tappable RS/1 targets, so Claude used the URL bar for Sport, Premier League, tables, and Brighton. This reached the equivalent end state but was not a real row/link click.
 
 ## References
-- Transcript folder: `/Users/cameroncooke/Desktop/out.nosync`
-- Validation artifact folder: `/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522`
-- Parser: `/Volumes/Developer/parse_claude_conversation.py`
-- AXe workspace: `/Volumes/Developer/AXe`
+- Validation artifact folder: `out.nosync/validation-ui-automation-20260513-215522`
 - Prior RS/1 commit: `04b055210b111c8a2d70bdf5c19ca4c6b0d2a479`

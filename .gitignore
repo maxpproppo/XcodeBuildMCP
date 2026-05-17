@@ -116,3 +116,6 @@ DerivedData
 .derivedData
 /.pr-learning
 /repros
+
+# Validation artifacts
+out.nosync/
