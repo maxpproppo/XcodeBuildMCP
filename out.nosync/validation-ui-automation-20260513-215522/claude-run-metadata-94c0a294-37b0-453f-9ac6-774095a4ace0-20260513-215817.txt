@@ -1,8 +1,0 @@
-session_id=94c0a294-37b0-453f-9ac6-774095a4ace0
-mcp_config=/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522/claude-mcp-config-20260513-215817.json
-prompt_file=/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522/claude-weather-safari-prompt-20260513-215817.md
-raw_stream=/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522/claude-stream-94c0a294-37b0-453f-9ac6-774095a4ace0-20260513-215817.jsonl
-claude_exit_status=0
-persisted_jsonl=/Users/cameroncooke/.claude/projects/-Volumes-Developer-XcodeBuildMCP-example-projects-Weather/94c0a294-37b0-453f-9ac6-774095a4ace0.jsonl
-copied_jsonl=/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522/claude-session-94c0a294-37b0-453f-9ac6-774095a4ace0-20260513-215817.jsonl
-parsed_dir=/Volumes/Developer/XcodeBuildMCP/out.nosync/validation-ui-automation-20260513-215522/claude-session-94c0a294-37b0-453f-9ac6-774095a4ace0-20260513-215817-parsed
