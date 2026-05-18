@@ -9,17 +9,6 @@
     }
   ],
   "$defs": {
-    "frame": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "x": { "type": "number" },
-        "y": { "type": "number" },
-        "width": { "type": "number" },
-        "height": { "type": "number" }
-      },
-      "required": ["x", "y", "width", "height"]
-    },
     "uiHierarchyNode": {
       "type": "object"
     },
@@ -35,61 +24,11 @@
       },
       "required": ["type", "uiHierarchy"]
     },
-    "runtimeActionName": {
-      "enum": ["tap", "typeText", "longPress", "touch", "swipeWithin"]
-    },
-    "runtimeElementRole": {
-      "enum": [
-        "application",
-        "button",
-        "cell",
-        "image",
-        "keyboard-key",
-        "list",
-        "menu",
-        "other",
-        "scroll-view",
-        "slider",
-        "switch",
-        "tab",
-        "text",
-        "text-field",
-        "window"
-      ]
-    },
-    "runtimeElementState": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "focused": { "type": "boolean" },
-        "selected": { "type": "boolean" },
-        "visible": { "type": "boolean" }
-      }
-    },
-    "runtimeElement": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "ref": { "type": "string", "pattern": "^e[1-9][0-9]*$" },
-        "role": { "$ref": "#/$defs/runtimeElementRole" },
-        "label": { "type": "string" },
-        "value": { "type": "string" },
-        "identifier": { "type": "string" },
-        "frame": { "$ref": "#/$defs/frame" },
-        "state": { "$ref": "#/$defs/runtimeElementState" },
-        "actions": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/runtimeActionName" }
-        }
-      },
-      "required": ["ref", "frame", "actions"]
-    },
     "runtimeActionHint": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "action": { "$ref": "#/$defs/runtimeActionName" },
+        "action": { "$ref": "https://xcodebuildmcp.com/schemas/structured-output/_defs/common.schema.json#/$defs/runtimeActionName" },
         "elementRef": { "type": "string", "pattern": "^e[1-9][0-9]*$" },
         "label": { "type": "string" }
       },
@@ -108,7 +47,7 @@
         "expiresAtMs": { "type": "integer", "minimum": 0 },
         "elements": {
           "type": "array",
-          "items": { "$ref": "#/$defs/runtimeElement" }
+          "items": { "$ref": "https://xcodebuildmcp.com/schemas/structured-output/_defs/common.schema.json#/$defs/runtimeElement" }
         },
         "actions": {
           "type": "array",
@@ -126,31 +65,6 @@
         "elements",
         "actions"
       ]
-    },
-    "compactRuntimeSnapshot": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "type": { "const": "runtime-snapshot" },
-        "rs": { "const": "1" },
-        "screenHash": { "type": "string", "minLength": 1 },
-        "seq": { "type": "integer", "minimum": 0 },
-        "count": { "type": "integer", "minimum": 0 },
-        "targets": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "scroll": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "text": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "udid": { "type": "string" }
-      },
-      "required": ["type", "rs", "screenHash", "seq", "count", "targets", "scroll", "udid"]
     },
     "runtimeSnapshotUnchanged": {
       "type": "object",
@@ -200,43 +114,11 @@
         "matches": {
           "type": "array",
           "items": {
-            "oneOf": [{ "$ref": "#/$defs/runtimeElement" }, { "type": "string" }]
+            "oneOf": [{ "$ref": "https://xcodebuildmcp.com/schemas/structured-output/_defs/common.schema.json#/$defs/runtimeElement" }, { "type": "string" }]
           }
         }
       },
       "required": ["predicate", "matches"]
-    },
-    "recoverableUiError": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "enum": [
-            "SNAPSHOT_MISSING",
-            "SNAPSHOT_EXPIRED",
-            "SNAPSHOT_PARSE_FAILED",
-            "ELEMENT_REF_NOT_FOUND",
-            "TARGET_NOT_FOUND",
-            "TARGET_AMBIGUOUS",
-            "TARGET_NOT_ACTIONABLE",
-            "WAIT_TIMEOUT",
-            "UI_STATE_CHANGED",
-            "ACTION_FAILED"
-          ]
-        },
-        "message": { "type": "string" },
-        "recoveryHint": { "type": "string" },
-        "elementRef": { "type": "string" },
-        "candidates": {
-          "type": "array",
-          "items": {
-            "oneOf": [{ "$ref": "#/$defs/runtimeElement" }, { "type": "string" }]
-          }
-        },
-        "snapshotAgeMs": { "type": "integer", "minimum": 0 },
-        "timeoutMs": { "type": "integer", "minimum": 0 }
-      },
-      "required": ["code", "message", "recoveryHint"]
     }
   },
   "properties": {
@@ -274,7 +156,7 @@
             },
             { "$ref": "#/$defs/uiHierarchyCapture" },
             { "$ref": "#/$defs/runtimeSnapshot" },
-            { "$ref": "#/$defs/compactRuntimeSnapshot" },
+            { "$ref": "https://xcodebuildmcp.com/schemas/structured-output/_defs/common.schema.json#/$defs/compactRuntimeSnapshot" },
             { "$ref": "#/$defs/videoRecordingCapture" },
             { "$ref": "#/$defs/runtimeSnapshotUnchanged" },
             { "$ref": "#/$defs/compactRuntimeSnapshotUnchanged" }
@@ -283,7 +165,7 @@
         "diagnostics": {
           "$ref": "https://xcodebuildmcp.com/schemas/structured-output/_defs/common.schema.json#/$defs/basicDiagnostics"
         },
-        "uiError": { "$ref": "#/$defs/recoverableUiError" },
+        "uiError": { "$ref": "https://xcodebuildmcp.com/schemas/structured-output/_defs/common.schema.json#/$defs/recoverableUiError" },
         "waitMatch": { "$ref": "#/$defs/waitMatch" }
       },
       "required": ["summary", "artifacts"]
