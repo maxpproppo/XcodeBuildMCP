@@ -65,13 +65,7 @@ function createBootSimResult(params: {
     ...(params.diagnosticMessage
       ? { diagnostics: createBasicDiagnostics({ errors: [params.diagnosticMessage] }) }
       : {}),
-    ...(params.simulatorId
-      ? {
-          artifacts: {
-            simulatorId: params.simulatorId,
-          },
-        }
-      : {}),
+    artifacts: params.simulatorId ? { simulatorId: params.simulatorId } : {},
   };
 }
 

@@ -608,7 +608,7 @@ export type SimulatorActionResultDomainResult = ToolDomainResultBase & {
   kind: 'simulator-action-result';
   summary: StatusSummary;
   action: SimulatorAction;
-  artifacts?: { simulatorId: string };
+  artifacts?: { simulatorId?: string };
   diagnostics?: BasicDiagnostics;
 };
 export type SimulatorListDomainResult = ToolDomainResultBase & {
