@@ -204,9 +204,7 @@ export function createBatchExecutor(
 
     try {
       await executeAxeCommand(commandArgs, simulatorId, 'batch', executor, axeHelpers);
-      if (!resolvedSteps.preserveSnapshot) {
-        clearRuntimeSnapshot(simulatorId);
-      }
+      clearRuntimeSnapshot(simulatorId);
       log('info', `${LOG_PREFIX}/${toolName}: Success for ${simulatorId}`);
     } catch (error) {
       if (shouldInvalidateRuntimeSnapshotAfterActionError(error)) {
