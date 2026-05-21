@@ -392,7 +392,7 @@ function createDoctorChecks(data: DoctorCollectedData): DoctorResult['checks'] {
   checks.push({
     name: 'sentry',
     status: 'ok',
-    message: `Enabled: ${data.doctorInfo.environmentVariables.SENTRY_DISABLED !== 'true' ? 'Yes' : 'No'}`,
+    message: 'Removed in this hardened build',
   });
 
   return checks;
@@ -707,11 +707,8 @@ export async function runDoctor(params: DoctorParams, deps: DoctorDependencies) 
       ]),
     );
 
-    // Sentry
     items.push(
-      doctorSection('Sentry', [
-        `Sentry enabled: ${doctorInfo.environmentVariables.SENTRY_DISABLED !== 'true' ? 'Yes' : 'No'}`,
-      ]),
+      doctorSection('Telemetry', ['Sentry telemetry: Removed in this hardened build']),
     );
 
     // Troubleshooting Tips

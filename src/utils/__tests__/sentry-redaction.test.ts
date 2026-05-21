@@ -1,14 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import type * as Sentry from '@sentry/node';
 import {
   __parseXcodeVersionForTests,
   __redactEventForTests,
   __redactLogForTests,
 } from '../sentry.ts';
 
+interface TestEvent {
+  message?: string;
+  user?: Record<string, unknown>;
+  request?: Record<string, unknown>;
+  breadcrumbs?: Array<Record<string, unknown>>;
+  exception?: {
+    values?: Array<{
+      type?: string;
+      value?: string;
+      stacktrace?: {
+        frames?: Array<{
+          abs_path?: string;
+          filename?: string;
+        }>;
+      };
+    }>;
+  };
+  extra?: Record<string, unknown>;
+}
+
+interface TestLog {
+  level: string;
+  message: string;
+  attributes: Record<string, unknown>;
+}
+
 describe('sentry redaction', () => {
   it('removes identity/request context and redacts user paths', () => {
-    const event: Sentry.Event = {
+    const event: TestEvent = {
       message: 'failed to open /Users/cam/project/App/AppDelegate.swift',
       user: { id: '123' },
       request: { url: 'https://example.com' },
@@ -62,7 +87,7 @@ describe('sentry redaction', () => {
   });
 
   it('redacts user paths in log payloads', () => {
-    const log: Sentry.Log = {
+    const log: TestLog = {
       level: 'info',
       message: 'tool failed at /Users/cam/project/build.log',
       attributes: {

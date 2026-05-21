@@ -876,12 +876,12 @@ async function collectSetupSelection(
   });
 
   showPromptHelp(
-    'Disable Sentry telemetry to stop sending anonymous runtime diagnostics for XcodeBuildMCP itself (not your app, project code, or build errors).',
+    'Sentry telemetry has been removed from this hardened build. Keep this disabled for compatibility with existing config files.',
     deps.quietOutput,
   );
   const sentryDisabled = await deps.prompter.confirm({
-    message: 'Disable Sentry telemetry?',
-    defaultValue: existingConfig?.sentryDisabled ?? false,
+    message: 'Keep telemetry disabled?',
+    defaultValue: existingConfig?.sentryDisabled ?? true,
   });
 
   const platforms = await selectPlatforms({

@@ -211,7 +211,7 @@ describe('setup command', () => {
     expect(parsed.enabledWorkflows?.length).toBeGreaterThan(0);
     expect(parsed.enabledWorkflows).not.toContain('doctor');
     expect(parsed.debug).toBe(false);
-    expect(parsed.sentryDisabled).toBe(false);
+    expect(parsed.sentryDisabled).toBe(true);
     expect(parsed.sessionDefaults?.workspacePath).toBe('App.xcworkspace');
     expect(parsed.sessionDefaults?.scheme).toBe('App');
     expect(parsed.sessionDefaults?.deviceId).toBe('DEVICE-1');

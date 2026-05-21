@@ -19,6 +19,20 @@ async function initConfigStoreForTest(overrides?: RuntimeConfigOverrides): Promi
   await initConfigStore({ cwd, fs: createMockFileSystemExecutor(), overrides });
 }
 
+async function withTemplateDownloadsAllowed<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = process.env.XCODEBUILDMCP_ALLOW_TEMPLATE_DOWNLOADS;
+  process.env.XCODEBUILDMCP_ALLOW_TEMPLATE_DOWNLOADS = 'true';
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.XCODEBUILDMCP_ALLOW_TEMPLATE_DOWNLOADS;
+    } else {
+      process.env.XCODEBUILDMCP_ALLOW_TEMPLATE_DOWNLOADS = previous;
+    }
+  }
+}
+
 describe('scaffold_ios_project plugin', () => {
   let mockCommandExecutor: any;
   let mockFileSystemExecutor: any;
@@ -138,15 +152,17 @@ describe('scaffold_ios_project plugin', () => {
         return trackingCommandExecutor(command, ...args);
       };
 
-      await runLogic(() =>
-        scaffold_ios_projectLogic(
-          {
-            projectName: 'TestIOSApp',
-            customizeNames: true,
-            outputPath: '/tmp/test-projects',
-          },
-          capturingExecutor,
-          mockFileSystemExecutor,
+      await withTemplateDownloadsAllowed(() =>
+        runLogic(() =>
+          scaffold_ios_projectLogic(
+            {
+              projectName: 'TestIOSApp',
+              customizeNames: true,
+              outputPath: '/tmp/test-projects',
+            },
+            capturingExecutor,
+            mockFileSystemExecutor,
+          ),
         ),
       );
 
@@ -179,15 +195,17 @@ describe('scaffold_ios_project plugin', () => {
         return trackingCommandExecutor(command, ...args);
       };
 
-      await runLogic(() =>
-        scaffold_ios_projectLogic(
-          {
-            projectName: 'TestIOSApp',
-            customizeNames: true,
-            outputPath: '/tmp/test-projects',
-          },
-          capturingExecutor,
-          mockFileSystemExecutor,
+      await withTemplateDownloadsAllowed(() =>
+        runLogic(() =>
+          scaffold_ios_projectLogic(
+            {
+              projectName: 'TestIOSApp',
+              customizeNames: true,
+              outputPath: '/tmp/test-projects',
+            },
+            capturingExecutor,
+            mockFileSystemExecutor,
+          ),
         ),
       );
 
@@ -363,15 +381,17 @@ describe('scaffold_ios_project plugin', () => {
         error: 'Template download failed',
       });
 
-      const result = await runLogic(() =>
-        scaffold_ios_projectLogic(
-          {
-            projectName: 'TestIOSApp',
-            customizeNames: true,
-            outputPath: '/tmp/test-projects',
-          },
-          failingMockCommandExecutor,
-          mockFileSystemExecutor,
+      const result = await withTemplateDownloadsAllowed(() =>
+        runLogic(() =>
+          scaffold_ios_projectLogic(
+            {
+              projectName: 'TestIOSApp',
+              customizeNames: true,
+              outputPath: '/tmp/test-projects',
+            },
+            failingMockCommandExecutor,
+            mockFileSystemExecutor,
+          ),
         ),
       );
 

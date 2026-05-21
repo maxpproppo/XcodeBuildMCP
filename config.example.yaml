@@ -9,7 +9,7 @@ experimentalWorkflowDiscovery: false
 disableSessionDefaults: false
 incrementalBuildsEnabled: false
 debug: false
-sentryDisabled: false
+sentryDisabled: true
 filePathRenderStyle: 'list' # text output file artifacts: list or tree
 sessionDefaults:
   projectPath: './MyApp.xcodeproj' # xor workspacePath

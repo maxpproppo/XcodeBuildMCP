@@ -14,6 +14,7 @@ export class TemplateManager {
   private static readonly GITHUB_ORG = 'getsentry';
   private static readonly IOS_TEMPLATE_REPO = 'XcodeBuildMCP-iOS-Template';
   private static readonly MACOS_TEMPLATE_REPO = 'XcodeBuildMCP-macOS-Template';
+  private static readonly ALLOW_TEMPLATE_DOWNLOADS_ENV = 'XCODEBUILDMCP_ALLOW_TEMPLATE_DOWNLOADS';
 
   /**
    * Get the template path for a specific platform
@@ -51,6 +52,12 @@ export class TemplateManager {
           log('info', `Template directory not found in ${localPath}, using GitHub release`);
         }
       }
+    }
+
+    if (process.env[this.ALLOW_TEMPLATE_DOWNLOADS_ENV] !== 'true') {
+      throw new Error(
+        `No local ${platform} template configured. Automatic template downloads are disabled in this hardened build. Set ${this.ALLOW_TEMPLATE_DOWNLOADS_ENV}=true to allow GitHub template downloads, or configure a local template path.`,
+      );
     }
 
     log('debug', '[TemplateManager] No valid config override, proceeding to download.');

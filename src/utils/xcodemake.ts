@@ -3,8 +3,6 @@ import type { CommandResponse } from './command.ts';
 import { getDefaultCommandExecutor } from './command.ts';
 import { existsSync, readdirSync, statSync } from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs/promises';
 import { getConfig } from './config-store.ts';
 
 let overriddenXcodemakePath: string | null = null;
@@ -43,48 +41,6 @@ export function isXcodemakeBinaryAvailable(): boolean {
   return false;
 }
 
-function overrideXcodemakeCommand(path: string): void {
-  overriddenXcodemakePath = path;
-  log('info', `Using overridden xcodemake path: ${path}`);
-}
-
-async function installXcodemake(): Promise<boolean> {
-  const tempDir = os.tmpdir();
-  const xcodemakeDir = path.join(tempDir, 'xcodebuildmcp');
-  const xcodemakePath = path.join(xcodemakeDir, 'xcodemake');
-
-  log('info', `Attempting to install xcodemake to ${xcodemakePath}`);
-
-  try {
-    await fs.mkdir(xcodemakeDir, { recursive: true });
-
-    log('info', 'Downloading xcodemake from GitHub...');
-    const response = await fetch(
-      'https://raw.githubusercontent.com/cameroncooke/xcodemake/main/xcodemake',
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to download xcodemake: ${response.status} ${response.statusText}`);
-    }
-
-    const scriptContent = await response.text();
-    await fs.writeFile(xcodemakePath, scriptContent, 'utf8');
-
-    await fs.chmod(xcodemakePath, 0o755);
-    log('info', 'Made xcodemake executable');
-
-    overrideXcodemakeCommand(xcodemakePath);
-
-    return true;
-  } catch (error) {
-    log(
-      'error',
-      `Error installing xcodemake: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return false;
-  }
-}
-
 export async function isXcodemakeAvailable(): Promise<boolean> {
   if (!isXcodemakeEnabled()) {
     log('debug', 'xcodemake is not enabled, skipping availability check');
@@ -103,15 +59,8 @@ export async function isXcodemakeAvailable(): Promise<boolean> {
       return true;
     }
 
-    log('info', 'xcodemake not found in PATH, attempting to download...');
-    const installed = await installXcodemake();
-    if (!installed) {
-      log('warn', 'xcodemake installation failed');
-      return false;
-    }
-
-    log('info', 'xcodemake installed successfully');
-    return true;
+    log('warn', 'xcodemake not found in PATH; automatic download is disabled in this hardened build');
+    return false;
   } catch (error) {
     log(
       'error',
