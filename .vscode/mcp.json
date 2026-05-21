@@ -2,14 +2,13 @@
   "servers": {
     "XcodeBuildMCP": {
       "type": "stdio",
-      "command": "npx",
+      "command": "xcodebuildmcp",
       "args": [
-        "-y",
-        "xcodebuildmcp@latest",
         "mcp"
       ],
       "env": {
         "XCODEBUILDMCP_DEBUG": "true",
+        "XCODEBUILDMCP_SENTRY_DISABLED": "true",
         "INCREMENTAL_BUILDS_ENABLED": "false",
         "XCODEBUILDMCP_IOS_TEMPLATE_PATH": "${workspaceFolder}/../XcodeBuildMCP-iOS-Template",
         "XCODEBUILDMCP_MACOS_TEMPLATE_PATH": "${workspaceFolder}/../XcodeBuildMCP-macOS-Template"

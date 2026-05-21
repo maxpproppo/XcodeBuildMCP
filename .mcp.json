@@ -1,21 +1,14 @@
 {
   "mcpServers": {
-    "sentry": {
-      "type": "http",
-      "url": "https://mcp.sentry.dev/mcp"
-    },
-    "xcodebuildmcp-dev": {
+    "xcodebuildmcp": {
       "type": "stdio",
-      "command": "node",
+      "command": "xcodebuildmcp",
       "args": [
-        "../../build/cli.js",
         "mcp"
       ],
       "env": {
         "XCODEBUILDMCP_DEBUG": "true",
-        "XCODEBUILDMCP_SENTRY_DISABLED": "true",
-        "XCODEBUILDMCP_IOS_TEMPLATE_PATH": "../../../XcodeBuildMCP-iOS-Template",
-        "XCODEBUILDMCP_MACOS_TEMPLATE_PATH": "../../../XcodeBuildMCP-macOS-Template"
+        "XCODEBUILDMCP_SENTRY_DISABLED": "true"
       }
     }
   }
