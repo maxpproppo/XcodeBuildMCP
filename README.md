@@ -7,35 +7,19 @@ A Model Context Protocol (MCP) server and CLI that provides tools for agent use 
 
 ## Installation
 
-XcodeBuildMCP ships as a single package with two modes: a **CLI** for direct terminal use and an **MCP server** for AI coding agents. Either install method gives you both.
+This fork is the internal hardened build of XcodeBuildMCP. It removes Sentry
+telemetry and disables automatic template and helper downloads by default.
 
-### Option A — Homebrew
+Use the internal install guide instead of the upstream Homebrew tap or the public
+`xcodebuildmcp@latest` npm package:
 
-```bash
-brew tap getsentry/xcodebuildmcp
-brew install xcodebuildmcp
-```
-
-### Option B — npm (Node.js 18+)
-
-```bash
-npm install -g xcodebuildmcp@latest
-```
-
-Verify either install:
-```bash
-xcodebuildmcp --help
-```
-
-### Connect your MCP client
-
-Drop-in config snippets for Cursor, Claude Code, Codex, can be found in the official docs page [MCP Clients](https://xcodebuildmcp.com/docs/clients). Most clients can also run the MCP server on demand via `npx -y xcodebuildmcp@latest mcp` without a global install.
+- [Internal Install](INTERNAL_INSTALL.md)
 
 ## Requirements
 
 - macOS 14.5 or later
 - Xcode 16.x or later
-- Node.js 18.x or later (not required for Homebrew installation)
+- Node.js 18.x or later
 
 ## Skills
 
@@ -46,16 +30,10 @@ XcodeBuildMCP now includes two optional agent skills:
 - **CLI Skill**: Primes the agent with instructions on how to navigate the CLI (recommended when using the CLI).
 
 
-To install with a global binary:
+After installing the internal global binary:
 
 ```bash
 xcodebuildmcp init
-```
-
-Or install directly via npx without a global install:
-
-```bash
-npx -y xcodebuildmcp@latest init
 ```
 
 For further information on installing skills, see [Agent Skills](https://xcodebuildmcp.com/docs/skills).
@@ -67,16 +45,14 @@ For further information on installing skills, see [Agent Skills](https://xcodebu
 
 ## Privacy
 
-XcodeBuildMCP uses Sentry for internal runtime error telemetry only. For details and opt-out instructions, see [Privacy & Telemetry](https://xcodebuildmcp.com/docs/privacy).
+This hardened fork removes Sentry telemetry from the runtime. The doctor command
+reports `Sentry telemetry: Removed in this hardened build`.
 
 ## CLI
 
 XcodeBuildMCP provides a unified command-line interface. The `mcp` subcommand starts the MCP server, while all other commands provide direct terminal access to tools:
 
 ```bash
-# Install globally
-npm install -g xcodebuildmcp@latest
-
 # Start the MCP server (for MCP clients)
 xcodebuildmcp mcp
 
@@ -87,18 +63,16 @@ xcodebuildmcp tools
 xcodebuildmcp simulator build --scheme MyApp --project-path ./MyApp.xcodeproj
 ```
 
-Check for updates and upgrade in place:
+Use [Internal Install](INTERNAL_INSTALL.md#updating) to update from the internal
+fork. Do not use `xcodebuildmcp upgrade`, which is designed for the public
+upstream package.
 
-```bash
-xcodebuildmcp upgrade --check
-xcodebuildmcp upgrade --yes
-```
-
-The CLI uses a per-workspace daemon for stateful operations (log capture, debugging, etc.) that auto-starts when needed. See the [CLI guide](https://xcodebuildmcp.com/docs/cli) for full documentation.
+The CLI uses a per-workspace daemon for stateful operations (log capture,
+debugging, etc.) that auto-starts when needed. See the [CLI guide](https://xcodebuildmcp.com/docs/cli) for full documentation.
 
 ## Documentation
 
-- Installation: [https://xcodebuildmcp.com/docs/installation](https://xcodebuildmcp.com/docs/installation)
+- Internal installation: [Internal Install](INTERNAL_INSTALL.md)
 - Setup: [https://xcodebuildmcp.com/docs/setup](https://xcodebuildmcp.com/docs/setup)
 - MCP clients: [https://xcodebuildmcp.com/docs/clients](https://xcodebuildmcp.com/docs/clients)
 - CLI usage: [https://xcodebuildmcp.com/docs/cli](https://xcodebuildmcp.com/docs/cli)
